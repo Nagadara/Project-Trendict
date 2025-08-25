@@ -1,0 +1,65 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>실시간 KODEX 200 시세</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #f0f2f5; }
+        .container { text-align: center; background-color: white; padding: 40px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        #price-display { font-size: 4em; font-weight: bold; color: #007bff; margin-top: 20px; min-width: 250px; text-align: center; }
+        small { color: #666; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>KODEX 200 실시간 시세</h1>
+        <div id="price-display">-</div>
+        <small>1초마다 자동 갱신</small>
+    </div>
+
+    <script>
+        // 시세를 표시할 HTML 요소를 가져옵니다.
+        const priceDisplay = document.getElementById('price-display');
+
+        // 백엔드 API로부터 시세 정보를 가져와 화면을 업데이트하는 함수
+        async function fetchIndexPrice() {
+            try {
+                // 백엔드 서버의 API 엔드포인트를 호출합니다.
+                const response = await fetch('http://127.0.0.1:8000/get-kospi200-index');
+                
+                // 응답이 성공적이지 않으면 에러를 발생시킵니다.
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+
+                // JSON 형식으로 된 응답 데이터를 파싱합니다.
+                const data = await response.json();
+
+                // 데이터가 있고, 현재 가격(current_value)이 있으면 화면에 표시합니다.
+                if (data && data.current_value) {
+                    // 숫자를 콤마가 있는 형식으로 변환하여 표시합니다.
+                    priceDisplay.textContent = parseInt(data.current_value).toLocaleString();
+                } else {
+                    priceDisplay.textContent = 'N/A'; // 데이터가 없을 경우
+                }
+
+            } catch (error) {
+                // 에러가 발생하면 콘솔에 로그를 남기고 화면에 에러 상태를 표시합니다.
+                console.error('Fetch error:', error);
+                priceDisplay.textContent = 'Error';
+            }
+        }
+
+        // 1000밀리초(1초)마다 fetchIndexPrice 함수를 반복해서 실행합니다.
+        setInterval(fetchIndexPrice, 1000);
+
+        // 페이지가 처음 로드될 때도 함수를 한 번 실행하여 초기값을 바로 표시합니다.
+        fetchIndexPrice();
+    </script>
+
+</body>
+</html>
