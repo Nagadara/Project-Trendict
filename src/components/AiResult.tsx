@@ -10,15 +10,19 @@ interface Prediction {
 
 interface AiResultProps {
   lastClose: number | undefined;
+  onPredict: () => void; // 부모로부터 받을 예측 함수
 }
 
-const AiResult: React.FC<AiResultProps> = ({ lastClose }) => {
+const AiResult: React.FC<AiResultProps> = ({ lastClose, onPredict }) => {
   const [prediction, setPrediction] = useState<Prediction | null>(null);
   const [predicting, setPredicting] = useState(false);
   const [showResult, setShowResult] = useState(false);
 
   const handlePredictClick = () => {
     if (!lastClose) return;
+
+    // 부모의 예측 핸들러 호출
+    onPredict();
 
     setPredicting(true);
     setShowResult(false);
@@ -49,7 +53,7 @@ const AiResult: React.FC<AiResultProps> = ({ lastClose }) => {
         onClick={handlePredictClick}
         disabled={predicting || !lastClose}
       >
-        {predicting ? 'AI 분석 중...' : '코스피 예측하기'}
+        {predicting ? 'AI 분석 중...' : '종목 예측하기'}
       </Button>
       
       {predicting && (

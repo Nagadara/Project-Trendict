@@ -41,10 +41,30 @@ const Header: React.FC = () => {
         </Box>
 
         <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'center' }}>
-          <Button color="inherit" component={Link} to="/dashboard">
+          <Button
+            color="inherit"
+            component={Link}
+            to="/dashboard"
+            sx={{
+              '&:hover': {
+                textDecoration: 'underline',
+                textUnderlineOffset: '4px'
+              }
+            }}
+          >
             MAIN
           </Button>
-          <Button color="inherit" component={Link} to="/profile">
+          <Button
+            color="inherit"
+            component={Link}
+            to="/profile"
+            sx={{
+              '&:hover': {
+                textDecoration: 'underline',
+                textUnderlineOffset: '4px'
+              }
+            }}
+          >
             Settings
           </Button>
         </Box>
