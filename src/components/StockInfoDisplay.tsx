@@ -19,7 +19,11 @@ interface StockInfoDisplayProps {
 
 
 const InfoItem: React.FC<{ icon: React.ElementType; label: string; value: string | number; unit?: string; color?: string }> = ({ icon, label, value, unit, color }) => (
-  <Grid item xs={12} sm={6} md={4} lg={6}>
+  /*
+  가장 바깥 Grid item에 오른쪽 패딩(pr)을 추가합니다.
+  pr: 2 (16px) 또는 원하는 값
+  */
+  <Grid item xs={12} sm={6} md={4} lg={6} sx={{ pr: 2.2 }}>
     <Box sx={{ display: 'flex', alignItems: 'center', py: 1 }}>
       <Icon component={icon} sx={{ mr: 1.5, color: 'text.secondary' }} />
       <Box>
@@ -77,8 +81,8 @@ const StockInfoDisplay: React.FC<StockInfoDisplayProps> = ({ info }) => {
 
         {/* 3. 오른쪽 영역 (가격 및 거래 정보) */}
         {/* flex: 1 로 남은 공간을 모두 차지하고, ml: 4 로 왼쪽과 간격을 줌 */}
-        <Box sx={{ flex: 1, ml: 4 }}>
-          <Grid container spacing={2}>
+        <Box sx={{ flex: 1, ml: 5 }}>
+          <Grid container spacing={3.5}>
             <Grid item xs={12} md={6}>
               <Grid container>{priceItems.map(item => <InfoItem key={item.label} {...item} />)}</Grid>
             </Grid>
