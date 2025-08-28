@@ -26,6 +26,7 @@ const AiResult: React.FC<AiResultProps> = ({ lastClose, stockCode, onPredict }) 
     try {
       // setTimeout 대신 시뮬레이션된 API를 호출합니다.
       const result = await getAIPrediction(stockCode, lastClose);
+      console.log("실제로 API에서 받은 데이터:", result); 
       setPrediction(result);
     } catch (err) {
       setError('AI 분석 중 오류가 발생했습니다.');
@@ -51,30 +52,22 @@ const AiResult: React.FC<AiResultProps> = ({ lastClose, stockCode, onPredict }) 
 
       {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
 
+
       {prediction && (
         <Box sx={{ mt: 3 }}>
-          <Typography variant="subtitle1" gutterBottom fontWeight="bold">AI 종합 분석 결과</Typography>
-          <Paper variant="outlined" sx={{ p: 2, backgroundColor: '#f5f5f5' }}>
-            <Grid container spacing={1.5} alignItems="center">
-              {/* --- 예측 범위 --- */}
-              <Grid item xs={12} sm={3}><Typography variant="body2" color="text.secondary">다음 주 예측 범위</Typography></Grid>
-              <Grid item xs={12} sm={9}><Typography variant="body1" fontWeight="bold" color="primary.main">{prediction.range[0].toLocaleString(undefined, { minimumFractionDigits: 2 })} ~ {prediction.range[1].toLocaleString(undefined, { minimumFractionDigits: 2 })}</Typography></Grid>
-              
-              {/* --- 나머지 UI는 기존과 동일하게 prediction 객체를 사용합니다 --- */}
-              <Grid item xs={12}><Divider sx={{ my: 1 }} /></Grid>
-              <Grid item xs={12} sm={3}><Typography variant="body2" color="text.secondary">핵심 분석</Typography></Grid>
-              <Grid item xs={12} sm={9}><Typography variant="body2">{prediction.analysis}</Typography></Grid>
-              <Grid item xs={12}><Divider sx={{ my: 1 }} /></Grid>
-              <Grid item xs={12} sm={3}><Typography variant="body2" color="text.secondary">주요 근거</Typography></Grid>
-              <Grid item xs={12} sm={9}><Typography variant="body2">{prediction.reason}</Typography></Grid>
-              <Grid item xs={12}><Divider sx={{ my: 1 }} /></Grid>
-              <Grid item xs={12} sm={3}><Typography variant="body2" color="text.secondary" sx={{ color: 'success.main' }}>긍정적 요인</Typography></Grid>
-              <Grid item xs={12} sm={9}>{prediction.positiveFactors.map((factor, index) => (<Typography key={index} variant="body2" sx={{ mb: 1 }}>• {factor}</Typography>))}</Grid>
-              <Grid item xs={12}><Divider sx={{ my: 1 }} /></Grid>
-              <Grid item xs={12} sm={3}><Typography variant="body2" color="text.secondary" sx={{ color: 'error.main' }}>잠재적 리스크</Typography></Grid>
-              <Grid item xs={12} sm={9}>{prediction.potentialRisks.map((risk, index) => (<Typography key={index} variant="body2" sx={{ mb: 1 }}>• {risk}</Typography>))}</Grid>
-            </Grid>
-          </Paper>
+          {/* ... */}
+          <Typography variant="body1" fontWeight="bold" color="primary.main">
+            {/* prediction.range가 없을 수도 있는 경우를 대비 */}
+            {prediction.range?.[0]?.toLocaleString(undefined, { minimumFractionDigits: 2 })} ~ {prediction.range?.[1]?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          </Typography>
+          {/* ... */}
+          <Typography variant="body2">{prediction.analysis}</Typography>
+          {/* ... */}
+          {/* prediction.positiveFactors가 없을 수도 있는 경우를 대비 */}
+          {prediction.positiveFactors?.map((factor, index) => (
+            <Typography key={index} variant="body2" sx={{ mb: 1 }}>• {factor}</Typography>
+          ))}
+          {/* ... */}
         </Box>
       )}
     </Paper>

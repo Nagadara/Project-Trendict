@@ -6,6 +6,7 @@ import AiResult from '../components/AiResult';
 import MarketIndices from '../components/MarketIndices';
 // mockApiData 대신 apiService와 타입을 import 합니다.
 import { getStockData, getAllStocks, Stock, StockData } from '../services/apiService';
+import Kospi200Realtime from '../components/Kospi200Realtime';
 
 const DashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -118,8 +119,11 @@ const DashboardPage: React.FC = () => {
               )}
             </Paper>
           </Box>
-          <Box sx={{ width: 280, flexShrink: 0 }}>
-            <MarketIndices indices={[]} /> {/* 이 부분도 나중에 API 연동 필요 */}
+          <Box sx={{ width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {/*  */}
+            <Kospi200Realtime />
+            {/* 이 부분도 나중에 API 연동 필요 */}
+            <MarketIndices indices={[]} />
           </Box>
         </Box>
         <Box>
