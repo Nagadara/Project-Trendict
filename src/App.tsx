@@ -5,6 +5,7 @@ import Header from './components/Header';
 import HomePage from './pages/HomePage';
 import DashboardPage from './pages/DashboardPage';
 import ProfilePage from './pages/ProfilePage';
+import GoogleAd from './components/GoogleAd';
 
 const AppContent: React.FC = () => {
   const location = useLocation();
@@ -13,6 +14,7 @@ const AppContent: React.FC = () => {
   return (
     <>
       {showHeader && <Header />}
+      <GoogleAd />
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
@@ -32,5 +34,6 @@ const App: React.FC = () => {
     </Router>
   );
 };
+
 
 export default App;
