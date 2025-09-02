@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Box, Button, ButtonGroup } from '@mui/material';
+import { Box, Button, ButtonGroup, Paper, Typography } from '@mui/material';
 import ReactECharts from 'echarts-for-react/lib/core';
 import * as echarts from 'echarts/core';
 import { LineChart, BarChart, CandlestickChart } from 'echarts/charts';
@@ -11,6 +11,7 @@ import {
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 import StockInfoDisplay from './StockInfoDisplay';
+import { ChartPeriod } from '../pages/DashboardPage';
 
 echarts.use([
   LineChart, BarChart, CandlestickChart,
@@ -28,12 +29,13 @@ interface StockInfo {
 interface StockChartProps {
   chartData: { categories: string[]; candlestick: number[][]; line: number[]; };
   stockInfo: StockInfo;
-  triggerPrediction: number;
   onPredict: () => void;
+  currentPeriod: ChartPeriod;
+  onPeriodChange: (period: ChartPeriod) => void;
 }
 
 const StockChart: React.FC<StockChartProps> = ({
-  chartData, stockInfo, triggerPrediction, onPredict,
+  chartData, stockInfo, onPredict, currentPeriod, onPeriodChange
 }) => {
   const chartRef = useRef<any>(null);
   const [chartType, setChartType] = useState<'candlestick' | 'line'>('candlestick');
@@ -264,18 +266,48 @@ const StockChart: React.FC<StockChartProps> = ({
     setCurrentOption(newOption);
   }, [processedData, chartType, stockInfo]);
 
+  const hasChartData = chartData && chartData.categories && chartData.categories.length > 0;
+  const periodButtons: ChartPeriod[] = ['1D', '1W', '1M', '3M', '1Y'];
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <ButtonGroup variant="outlined">
+      {/* [수정] 상단 컨트롤 영역 */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+        <ButtonGroup variant="outlined" size="small">
+          {periodButtons.map((period) => (
+            <Button key={period} onClick={() => onPeriodChange(period)} variant={currentPeriod === period ? 'contained' : 'outlined'}>
+              {period}
+            </Button>
+          ))}
+        </ButtonGroup>
+        <ButtonGroup variant="outlined" size="small">
           <Button onClick={() => setChartType('candlestick')} variant={chartType === 'candlestick' ? 'contained' : 'outlined'}>Candlestick</Button>
           <Button onClick={() => setChartType('line')} variant={chartType === 'line' ? 'contained' : 'outlined'}>Line</Button>
         </ButtonGroup>
-        <Button onClick={onPredict} variant="contained">종목 예측하기</Button>
+        <Button onClick={onPredict} variant="contained" size="small">종목 예측하기</Button>
       </Box>
       
       <Box sx={{ flexGrow: 1, height: 'calc(100% - 120px)' }}>
-        <ReactECharts ref={chartRef} echarts={echarts} option={currentOption} style={{ height: '100%', width: '100%' }} />
+        {/* [수정] hasChartData 조건을 컴포넌트 내부에서 사용합니다. */}
+        {hasChartData ? (
+          <ReactECharts ref={chartRef} echarts={echarts} option={currentOption} style={{ height: '100%', width: '100%' }} />
+        ) : (
+          // 데이터가 없을 때 보여줄 UI를 여기에 정의합니다.
+          <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%', p: 2 }}>
+            <Typography variant="h6" color="text.secondary" gutterBottom>
+              차트 데이터 없음
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2, textAlign: 'center' }}>
+              KIS 모의투자 서버에서는 장중 시간에만 과거 데이터가 제공될 수 있습니다.
+            </Typography>
+            <Paper sx={{ p: 2, backgroundColor: '#f5f5f5', border: '1px solid #e0e0e0' }}>
+              <Typography variant="body2">현재가: {stockInfo.currentPrice.toLocaleString()} 원</Typography>
+              <Typography variant="body2">시가: {stockInfo.open.toLocaleString()} 원</Typography>
+              <Typography variant="body2">고가: {stockInfo.high.toLocaleString()} 원</Typography>
+              <Typography variant="body2">저가: {stockInfo.low.toLocaleString()} 원</Typography>
+            </Paper>
+          </Box>
+        )}
       </Box>
 
       <Box sx={{ mt: 3 }}>
