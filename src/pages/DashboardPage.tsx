@@ -1,15 +1,19 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Container, Typography, Box, CircularProgress, Paper, TextField, Autocomplete, Alert, InputAdornment } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import StockChart from '../components/StockChart';
 import AiResult from '../components/AiResult';
 import MarketIndices from '../components/MarketIndices';
 import { getStockData, getAllStocks, Stock, StockData, getMarketIndices, Index } from '../services/apiService';
-import Kospi200Realtime from '../components/Kospi200Realtime';
+import useWebSocket from 'react-use-websocket';
+import Kospi200Realtime, { KospiDataBody } from '../components/Kospi200Realtime';
 
+export type ChartPeriod = '1D' | '1W' | '1M' | '3M' | '1Y';
+
+// 초기 상태 기본값
 const emptyStockData: StockData = {
   info: {
-    marketType: '', stockCode: '005930', stockName: '데이터 로딩 중...',
+    marketType: '', stockCode: '', stockName: '종목을 선택하세요',
     open: 0, high: 0, low: 0, currentPrice: 0, week52high: 0, week52low: 0,
     volume: 0, tradeValue: 0, marketCap: 0, foreignRatio: 0,
     per: 0, pbr: 0, dividendYield: 0,
@@ -19,141 +23,181 @@ const emptyStockData: StockData = {
 
 const DashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
-  // 초기 상태를 null 대신 비어있는 기본 데이터로 설정합니다.
   const [currentStockData, setCurrentStockData] = useState<StockData>(emptyStockData);
-  const [currentStockCode, setCurrentStockCode] = useState('005930'); // 기본 종목 코드
+  const [currentStockCode, setCurrentStockCode] = useState('005930');
   const [allStocks, setAllStocks] = useState<Stock[]>([]);
-  const [marketIndices, setMarketIndices] = useState<Index[]>([]);
+  const [marketIndices, setMarketIndices] = useState<Index[]>([]); // API로 받는 정적 지수 (KOSPI, KOSDAQ)
+  const [kospi200Data, setKospi200Data] = useState<Index | null>(null); // KOSPI 200 실시간 지수
+  const [realtimeTickData, setRealtimeTickData] = useState<Index | null>(null); // KODEX 200 실시간 시세
   const [searchError, setSearchError] = useState('');
-  const [triggerPrediction, setTriggerPrediction] = useState(0);
-  const [isApiKeyMissing, setIsApiKeyMissing] = useState(false); // API 키 상태 추가
+  const [chartPeriod, setChartPeriod] = useState<ChartPeriod>('3M');
 
-  // 최초 렌더링 시 전체 종목 목록을 API(시뮬레이션)로 가져옵니다.
+  // KODEX 200 실시간 시세 수신을 위한 웹소켓 연결
+  const { lastJsonMessage } = useWebSocket('ws://127.0.0.1:8000/ws/stock-updates', {
+    shouldReconnect: () => true,
+  });
+
   useEffect(() => {
-    const fetchAllStocks = async () => {
+    if (lastJsonMessage?.type === 'tick' && typeof lastJsonMessage.data === 'string' && !lastJsonMessage.data.includes('PINGPONG')) {
+      console.log('Received stock update:', lastJsonMessage);
       try {
-        const stocks = await getAllStocks();
-        setAllStocks(stocks);
-        // 키가 없을 때 반환되는 예시 데이터인지 확인
-        if (stocks.length > 0 && stocks[0].name.includes('(예시)')) {
-          setIsApiKeyMissing(true);
-        }
-      } catch (err) {
-        console.error(err);
-        setSearchError('종목 목록을 불러오는 데 실패했습니다.');
+        // [최종 수정] KIS 원본 데이터는 JSON이 아니라 '^'로 구분된 텍스트입니다.
+        // 1. '|'로 분리하여 데이터 부분만 추출합니다. (e.g., "069500^...")
+        const dataParts = lastJsonMessage.data.split('|');
+        const bodyStr = dataParts[dataParts.length - 1]; // 마지막 부분이 실제 데이터
+        
+        // 2. '^'로 분리하여 배열로 만듭니다.
+        const tickParts = bodyStr.split('^');
+
+        // 3. KIS API 명세에 따라 올바른 인덱스에서 값을 추출합니다.
+        // H0STCNT0 (실시간 주식 체결가) 응답 기준:
+        // tickParts[2]: 현재가 (stck_prpr)
+        // tickParts[3]: 전일 대비 (prdy_vrss)
+        // tickParts[5]: 전일 대비율 (prdy_ctrt)
+        const currentPrice = parseFloat(tickParts[2]);
+        const change = parseFloat(tickParts[3]);
+        const changeRate = parseFloat(tickParts[5]);
+
+        // 4. 상태를 업데이트합니다.
+        setRealtimeTickData({
+            name: 'KODEX 200 (실시간)',
+            value: currentPrice,
+            change: change,
+            changePercent: changeRate,
+            flag: '📈'
+        });
+      } catch (e) {
+        console.error("실시간 Tick 데이터 파싱 오류:", e);
       }
-    };
-    fetchAllStocks();
+    }
+  }, [lastJsonMessage]);
+
+  const handlePredict = useCallback(() => {
+    // AI 예측 로직 (그대로 둠)
   }, []);
 
-  // currentStockCode가 변경될 때마다 해당 종목 데이터를 API(시뮬레이션)로 가져옵니다.
+  // KOSPI 200 실시간 데이터를 받아 상태에 저장하는 콜백 함수
+  const handleKospi200Update = useCallback((data: KospiDataBody) => {
+    const sign = ['4', '5'].includes(data.prdy_vrss_sign) ? -1 : 1;
+    setKospi200Data({
+      name: 'KOSPI 200',
+      value: parseFloat(data.bstp_nmix_prpr),
+      change: parseFloat(data.bstp_nmix_prdy_vrss),
+      changePercent: parseFloat(data.bstp_nmix_prdy_ctrt) * sign,
+      flag: '🇰🇷'
+    });
+  }, []);
+
+  // 초기 데이터 로드 (종목 목록 + 정적 지수)
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        setSearchError('');
+        const [stocks, indices] = await Promise.all([
+          getAllStocks(),
+          getMarketIndices()
+        ]);
+        setAllStocks(stocks);
+        setMarketIndices(indices);
+      } catch (err) {
+        console.error("초기 데이터 로딩 실패:", err);
+        setSearchError('시장 데이터를 불러오는 데 실패했습니다.');
+      }
+    };
+    fetchInitialData();
+  }, []);
+
+  // 종목 데이터 로드
   useEffect(() => {
     const fetchStockData = async () => {
+      if (!currentStockCode) return;
       setLoading(true);
       setSearchError('');
       try {
-        const data = await getStockData(currentStockCode);
+        const data = await getStockData(currentStockCode, chartPeriod);
         setCurrentStockData(data);
       } catch (err: any) {
-        setSearchError(err.message || `종목 코드 '${currentStockCode}'에 대한 데이터를 찾을 수 없습니다.`);
-        setCurrentStockData(emptyStockData); // 실패 시에도 기본 데이터로 설정
+        console.error("종목 데이터 로딩 실패:", err);
+        setSearchError('종목 데이터를 불러오는 데 실패했습니다.');
       } finally {
         setLoading(false);
       }
     };
     fetchStockData();
-  }, [currentStockCode]);
+  }, [currentStockCode, chartPeriod]);
 
-  const handlePredict = useCallback(() => {
-    setTriggerPrediction(prev => prev + 1);
-  }, []);
+  // 정적 지수와 모든 실시간 데이터를 결합하는 로직
+  const combinedIndices = useMemo(() => {
+    let indices = [...marketIndices];
+    
+    // KOSPI 200 데이터 추가 또는 업데이트
+    if (kospi200Data) {
+      const existingIndex = indices.findIndex(idx => idx.name === 'KOSPI 200');
+      if (existingIndex > -1) {
+        indices[existingIndex] = kospi200Data;
+      } else {
+        indices.push(kospi200Data);
+      }
+    }
 
-  if (loading) {
+    // KODEX 200 데이터 추가 또는 업데이트
+    if (realtimeTickData) {
+      const existingIndex = indices.findIndex(idx => idx.name.includes('KODEX 200'));
+      if (existingIndex > -1) {
+        indices[existingIndex] = realtimeTickData;
+      } else {
+        indices.push(realtimeTickData);
+      }
+    }
+    
+    return indices;
+  }, [marketIndices, kospi200Data, realtimeTickData]);
+
+  // 로딩 상태
+  if (loading && currentStockData.info.stockName === '종목을 선택하세요') {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
         <CircularProgress />
         <Typography sx={{ ml: 2 }}>Loading Market Data...</Typography>
       </Box>
     );
   }
 
-  if (!currentStockData) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <Alert severity="error">{searchError}</Alert>
-      </Box>
-    );
-  }
-
-  /*const lastClose = currentStockData.chartData.line[currentStockData.chartData.line.length - 1];*/
-  const lastClose = currentStockData.info.currentPrice;
-  const hasChartData = currentStockData.chartData.categories.length > 0;
-
   return (
     <Container maxWidth={false} sx={{ mt: 4, mb: 4, pl: '24px !important', pr: '24px !important' }}>
-      {/* API 키가 없을 때 경고 메시지를 표시합니다. */}
-      {isApiKeyMissing 
-        ? 
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          백엔드에 KIS API 키가 설정되지 않았습니다. 현재 예시 데이터로 표시됩니다.
-        </Alert>
-        : 
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          API 키 등록에 성공했습니다.
-        </Alert>
-      }
-      {/* API 키가 있을 때 */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-        <Box sx={{ display: 'flex', gap: 3 }}>
+        <Box sx={{ display: 'flex', gap: 3, flexDirection: { xs: 'column', lg: 'row' } }}>
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', height: 'calc(100vh - 150px)', overflow: 'hidden' }}>
-              <Autocomplete
-                sx={{ mb: 2, width: 300 }}
-                options={allStocks}
-                autoHighlight
-                getOptionLabel={(option) => `${option.name} (${option.code})`}
-                value={allStocks.find(stock => stock.code === currentStockCode) || null}
-                onChange={(event, newValue) => { if (newValue) { setCurrentStockCode(newValue.code); } }}
-                renderInput={(params) => (
-                  <TextField {...params} label="종목 검색" variant="outlined" size="small"
-                    InputProps={{ ...params.InputProps, startAdornment: (<InputAdornment position="start"><SearchIcon /></InputAdornment>) }}
-                  />
-                )}
-              />
+            <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '100%' }}>
               {searchError && <Alert severity="warning" sx={{ mb: 2 }}>{searchError}</Alert>}
-              {hasChartData ? (
+              
+              {currentStockData.info.stockCode ? (
                 <StockChart 
                   chartData={currentStockData.chartData}
                   stockInfo={currentStockData.info}
-                  triggerPrediction={triggerPrediction}
                   onPredict={handlePredict}
+                  currentPeriod={chartPeriod}
+                  onPeriodChange={setChartPeriod}
                 />
               ) : (
-                <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-                  <Typography variant="h6" color="text.secondary">
-                    차트 데이터 없음
-                  </Typography>
-                  <Typography variant="body1" color="text.secondary">
-                    현재 API는 실시간 시세 정보만 제공합니다.
-                  </Typography>
-                  <Paper sx={{p: 2, mt: 2, backgroundColor: '#f0f0f0'}}>
-                    <Typography>현재가: {currentStockData.info.currentPrice.toLocaleString()} 원</Typography>
-                    <Typography>시가: {currentStockData.info.open.toLocaleString()} 원</Typography>
-                    <Typography>고가: {currentStockData.info.high.toLocaleString()} 원</Typography>
-                    <Typography>저가: {currentStockData.info.low.toLocaleString()} 원</Typography>
-                  </Paper>
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
+                  <Typography>종목을 선택해주세요.</Typography>
                 </Box>
               )}
             </Paper>
           </Box>
-          <Box sx={{ width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
-            {/* indices prop에 실제 데이터 전달 */}
-            <Kospi200Realtime />
-            <MarketIndices indices={marketIndices} />
+
+          {/* 오른쪽 사이드바: KOSPI200 실시간 + 통합된 지수 현황 */}
+          <Box sx={{ width: { xs: '100%', lg: 280 }, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <Kospi200Realtime onDataUpdate={handleKospi200Update} />
+            <MarketIndices indices={combinedIndices} />
           </Box>
         </Box>
+
         <Box>
-          <AiResult lastClose={lastClose} stockCode={currentStockCode} onPredict={handlePredict} />
+          {currentStockData.info.currentPrice > 0 && (
+            <AiResult lastClose={currentStockData.info.currentPrice} stockCode={currentStockCode} onPredict={handlePredict} />
+          )}
         </Box>
       </Box>
     </Container>
