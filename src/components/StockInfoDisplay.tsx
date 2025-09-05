@@ -58,17 +58,17 @@ const StockInfoDisplay: React.FC<StockInfoDisplayProps> = ({ info }) => {
   ];
 
   return (
-    <Paper 
-      elevation={2} 
-      sx={{ 
-        p: 3, 
+    <Paper
+      elevation={2}
+      sx={{
+        p: 3,
         backgroundColor: '#f8f9fa',
         border: '1px solid #dee2e6'
       }}
     >
       {/* 1. 전체를 감싸는 Flexbox 컨테이너 */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        
+
         {/* 2. 왼쪽 영역 (종목 정보) */}
         <Box>
           <Typography variant="h4" component="h1" gutterBottom sx={{ mb: 0 }}>
