@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "andong04",
+  "private_key_id": "4071608266b03d9d6d779e8b04817f408408608a",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCaMwZfX8y3WeLt\no7N9nPIyRPZKWBSlkc8jA/84HWufkFsAZTwIIh1Ny9iUS/sYaa2GyiM8nRKUjQlH\nkP2EEhZamfTTYAYHzBrrtTgYiFbakfl2Bm4VTMKjWfduovFSLCtLDdhp4I05On3V\n8zt17GmzXVVBwFvJOIya10ajEf1U7vztFafNRZkcat2SEbjo5ySXiHwW8aaXNzJ3\n2S1sMo9Lq3598NX/EMG8CyUAf20f7cYwk/oU43H3OOjwtQY8eDKWiGr0aImw4SSx\nZlrFKPggmMeSbLn+vXJVJoz4B+lqrHVvQuJh93iJyBNLmB7QrLHTRdnaKCpgvWcN\nPhNQBrNjAgMBAAECggEAAZOFr3zV0CiriLfRV7I+jbL/b6jZpB0+DsC1gcfxE6JK\nVXQ8AKoU4JrGx2VNku22bDGUHoAJFKeIbVnbWD4TFzlXAHwEminNf5SIMLu+MJ0g\nMNQ0qiQCRM++SoCA1yZECbIsVhlFEebkkPGGk+Di3Q7alnUDIZXIVV69l2DAbsyM\nr50MLAxLFw0OFi921lUVOE1DLf0FrN2uhCeys49Oe3hAVUfkT1bZYlQb8UqaGJ6f\nJ/nnMfyNSDunee1fA7nYF5W2iuQDV8HyjSarbP86HAb/Tsl2WfOXxvvfB9vQBpbI\nW0o5e/XL4+EK4Q6IKuMvVeNTHhgIKfAQVlD/jxiW+QKBgQDJpPhbQwITrnyGPnYi\nadhmeltCIy4Mw8/iP03Ouq4ax8xovOszA/v2vNH5PxsYtJBkUrz/w/pLTRBs0sOj\nLcjR4Neb4RsNFw8K7MGeQmCNpoFHscanbdSFOaWHzIXOt4aw8eL/P8xjqBKbQXZV\nhBST8EZrh5TnUagg5YQ0U2x73wKBgQDDw/mDC8EptvA5gVQ5KBckZxL7NoIhf5TL\nGVt6/+1Le9I4C0XJYq3M95IT3Ajg7qTtA0P/OVdHiI4j0724VivkvIqftzOQ0Fqh\no/nvJ9D8YMEPxG8Ezd4m5N3fIwiuz9RRmC6AMZnUEcfgwWvvbZpMgP9NLBoA6VgE\nDf7NtDi4/QKBgAmMHRI9HvkNlunIRVGlz1Ay1OVRwxlpoAsnUijKn/m2ohAHed9l\nfeWV1R9HBKJr0jZd0IMPpWcxU+jDJe4w+cQuMCc6RkydXeH3icdTfzzVuGNLoItG\n4PwZ2aOPZHqAKAlyunu5apUBXTgqpk6wPUUv6DWpKry1Gg/MrjDIDmfjAoGAX3uN\njlJEY7E7mACxcLNSHko74tViQS52B12V1fdP6Ro6nWU6I5CCzs8Nq6wNlJAxVvzZ\nxHlWTaiYE3dqOKem/wjK4D294+sL2X0eIXydHQuf/q3DrGcw7G2Cnhv7VzA9EZMV\nUydeLSaDA+ezWnNt59SfMSfKgxlM+aVN200EwY0CgYBDlWR0JE2rC2YdoM0c/Wlv\nLUYplOR0zrMGWglPH/abHuylPPXjWRBIf9h4tChYg01bmrhwLvmxXvTfKG4B6N8F\npb0VQ/UU1Vcl5NjUek1en3ZmgRTCHTiyhatsCchLjWkT740GBOYhbxNs55l4c5QE\nXeCn7u23H8py0Ejd5QX77w==\n-----END PRIVATE KEY-----\n",
+  "client_email": "trendict-gcs-reader@andong04.iam.gserviceaccount.com",
+  "client_id": "104286569219442284549",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/trendict-gcs-reader%40andong04.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
