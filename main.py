@@ -4,12 +4,18 @@ import requests
 import asyncio
 import websockets
 import csv
+import pandas as pd
+import random
 from datetime import datetime, timedelta
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
+# Google Cloud 관련
+from google.cloud import storage
+from google.cloud.exceptions import NotFound
+import io
 
 import models
 import schemas
@@ -136,6 +142,7 @@ async def get_stock_info(stock_code: str):
         return {"marketType": output.get('rprs_mrkt_kor_name', 'N/A'), "stockCode": stock_code, "stockName": output.get('bstp_kor_isnm', '알 수 없음'), "currentPrice": float(output.get('stck_prpr', 0)), "open": float(output.get('stck_oprc', 0)), "high": float(output.get('stck_hgpr', 0)), "low": float(output.get('stck_lwpr', 0)), "week52high": float(output.get('w52_hgpr', 0)), "week52low": float(output.get('w52_lwpr', 0)), "volume": float(output.get('acml_vol', 0)), "tradeValue": float(output.get('acml_tr_pbmn', 0)), "marketCap": float(output.get('mket_prtt_val', 0)), "foreignRatio": float(output.get('frgn_hldn_qty_rate', 0)), "per": float(output.get('per', 0)), "pbr": float(output.get('pbr', 0)), "dividendYield": float(output.get('dvrg_rto', 0))}
     raise HTTPException(status_code=404, detail=f"KIS API 오류: {data.get('msg1')}")
 
+
 @app.get("/stocks/{stock_code}/candles", tags=["Stock Data"])
 async def get_stock_candles(stock_code: str, period: str = "day", interval: str = "1"):
     if not are_keys_configured(): return []
@@ -165,6 +172,57 @@ async def get_stock_candles(stock_code: str, period: str = "day", interval: str 
         return chart_data
     except Exception as e: print(f"!!! /candles 엔드포인트에서 오류 발생: {e}"); return []
 
+
+# ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+# ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+# --- [추가] 현재가를 기반으로 과거 모의 분봉 데이터를 생성하는 헬퍼 함수 ---
+# ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+# ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+
+def create_mock_intraday_candles(current_price: float, interval_minutes: int = 5):
+    if current_price <= 0: return []
+    candles = []
+    price = current_price
+    now = datetime.now()
+    market_open_time = now.replace(hour=9, minute=0, second=0, microsecond=0)
+    
+    current_time = market_open_time
+    # 현재 시간이 9시 이전이면, 어제 장 마감까지의 데이터를 보여줍니다.
+    if now < market_open_time:
+        market_open_time = market_open_time - timedelta(days=1)
+        now = now.replace(hour=15, minute=30, second=0, microsecond=0) - timedelta(days=1)
+        current_time = market_open_time
+
+    while current_time <= now and current_time.hour < 16:
+        open_price = price * (1 + random.uniform(-0.001, 0.001))
+        close_price = open_price * (1 + random.uniform(-0.002, 0.002))
+        high_price = max(open_price, close_price) * (1 + random.uniform(0, 0.001))
+        low_price = min(open_price, close_price) * (1 - random.uniform(0, 0.001))
+        volume = random.randint(1000, 5000)
+        
+        candles.append({
+            "date": current_time.strftime("%Y-%m-%d %H:%M:%S"),
+            "open": round(open_price, 2), "high": round(high_price, 2),
+            "low": round(low_price, 2), "close": round(close_price, 2), "volume": volume
+        })
+        price = close_price
+        current_time += timedelta(minutes=interval_minutes)
+    return candles
+
+# --- [추가] 모의 분봉 데이터를 제공하는 새로운 API 엔드포인트 ---
+@app.get("/stocks/{stock_code}/mock-intraday-candles", tags=["Stock Data"])
+async def get_mock_intraday_candles(stock_code: str):
+    print(f"✅ 1D(분봉) 모의 데이터 요청 수신: '{stock_code}'")
+    info = get_current_price(stock_code)
+    current_price = float(info.get('stck_prpr', 150000)) if info else 150000
+    return create_mock_intraday_candles(current_price, 5) # 5분 간격으로 고정
+
+# ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+# ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+# ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+# ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+# ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+
 @app.get("/market/indices", tags=["Stock Data"])
 async def get_market_indices():
     if not are_keys_configured(): return []
@@ -184,12 +242,86 @@ async def get_market_indices():
         except Exception: results.append({"name": index_info["name"], "value": 0, "change": 0, "changePercent": 0, "flag": index_info["flag"]})
     return results
 
+# --- CSV 파일에서 과거 차트 데이터를 읽어오는 새로운 API 엔드포인트 ---
+@app.get("/stocks/{stock_code}/historical-candles", tags=["Stock Data"])
+async def get_historical_candles_from_csv(stock_code: str):
+    # 지금은 KODEX 200만 지원하지만, 향후 다른 종목도 지원하도록 확장 가능
+    if stock_code != "069500":
+        raise HTTPException(status_code=404, detail="해당 종목의 과거 데이터 파일이 없습니다.")
+
+    file_path = "data/kodex200.csv"
+
+    if not os.path.exists(file_path):
+        print(f"⚠️ 경고: {file_path}를 찾을 수 없습니다.")
+        return []
+
+    try:
+        # [수정 1] CSV 파일의 첫 번째 행을 헤더로 사용하지 않고, 직접 컬럼 이름을 지정합니다.
+        # 이렇게 하면 CSV 파일의 헤더 이름이 다르거나 없어도 정상적으로 작동합니다.
+        df = pd.read_csv(file_path, names=['date', 'open', 'high', 'low', 'close'], header=0)
+
+        # [수정 2] 데이터가 비어있는 행(NaN)이 있을 경우 제거합니다.
+        df.dropna(inplace=True)
+
+        # [수정 3] 각 컬럼의 데이터 타입을 숫자로 변환합니다. 오류 발생 시 해당 행을 무시합니다.
+        for col in ['open', 'high', 'low', 'close']:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+        df.dropna(inplace=True)
+
+        # 데이터를 프론트엔드가 요구하는 JSON 형식으로 변환
+        chart_data = df.to_dict('records')
+
+        # 날짜 형식을 프론트엔드 차트와 일치시키기
+        for item in chart_data:
+            try:
+                dt_obj = pd.to_datetime(item['date'])
+                item['date'] = dt_obj.strftime("%Y-%m-%d")
+            except Exception as date_err:
+                print(f"날짜 변환 오류: {item['date']} -> {date_err}")
+                item['date'] = "Invalid Date" # 잘못된 날짜는 표시
+
+        # 유효하지 않은 날짜 데이터 필터링
+        chart_data = [item for item in chart_data if item['date'] != "Invalid Date"]
+
+        print(f"✅ {file_path}에서 {len(chart_data)}개의 과거 데이터를 성공적으로 로드했습니다.")
+        return chart_data
+
+    except Exception as e:
+        # [수정 4] 오류 발생 시, 어떤 종류의 오류인지 터미널에 상세하게 출력합니다.
+        print(f"!!! /historical-candles CSV 처리 중 심각한 오류 발생: {type(e).__name__}, {e}")
+        raise HTTPException(status_code=500, detail=f"CSV 파일 처리 중 오류 발생: {e}")
+
 # --- AI Predict 엔드포인트 ---
 @app.post("/ai/predict/{stock_code}", tags=["AI Service"])
 async def ai_predict(stock_code: str, last_close: float):
-    await asyncio.sleep(1)
-    predicted_min = last_close * 0.99; predicted_max = last_close * 1.02
-    return {"range": [predicted_min, predicted_max], "analysis": f"AI 분석 결과, {stock_code} 주가는 단기 변동성을 보일 수 있으나, 장기적으로 긍정적 흐름이 예상됩니다.", "reason": "최근 기관 투자자 순매수세가 강하게 유입되고 있으며, 관련 산업 섹터 성장 전망이 밝습니다.", "positiveFactors": ["기관 순매수세 유입", "산업 섹터 성장 전망"], "potentialRisks": ["글로벌 경제 불확실성", "단기 차익 실현 매물 출회 가능성"]}
+    # .env 파일에서 VM 주소 불러오기
+    ai_vm_url = os.getenv("AI_VM_URL")
+
+    # VM 주소가 설정되어 있지 않으면, 기존의 시뮬레이션 로직을 실행
+    if not ai_vm_url:
+        print("⚠️ AI VM 주소가 설정되지 않아 내부 시뮬레이션을 실행합니다.")
+        await asyncio.sleep(1)
+        predicted_min = last_close * 0.99; predicted_max = last_close * 1.02
+        return {"range": [predicted_min, predicted_max], "analysis": "...", "reason": "...", "positiveFactors": [], "potentialRisks": []}
+
+    # VM으로 보낼 요청 URL과 데이터
+    vm_predict_url = f"{ai_vm_url}/predict"
+    request_data = {"stock_code": stock_code, "last_close": last_close}
+
+    print(f"🚀 AI VM({vm_predict_url})으로 예측 요청을 전달합니다...")
+    try:
+        # VM에 POST 요청 보내기
+        res = requests.post(vm_predict_url, json=request_data, timeout=10) # 타임아웃 10초
+        res.raise_for_status() # HTTP 오류 발생 시 예외 발생
+
+        # VM으로부터 받은 응답을 그대로 프론트엔드에 반환
+        prediction_from_vm = res.json()
+        print("✅ AI VM으로부터 예측 결과를 수신했습니다.")
+        return prediction_from_vm
+
+    except requests.exceptions.RequestException as e:
+        print(f"!!! AI VM 연결 실패: {e}")
+        raise HTTPException(status_code=503, detail="AI 예측 서버에 연결할 수 없습니다.")
 
 # --- 웹소켓 엔드포인트 ---
 @app.websocket("/ws/kospi200")
@@ -253,7 +385,6 @@ async def background_fetch_price_periodically():
                 await manager.broadcast(json.dumps({"type": "snapshot_5min", "data": simplified_data}))
                 save_snapshot_to_csv(simplified_data)
                 print(f"📈 [5분 주기] 데이터 전송 및 저장: {simplified_data}")
-
 
 # --- 서버 시작 이벤트 ---
 @app.on_event("startup")
